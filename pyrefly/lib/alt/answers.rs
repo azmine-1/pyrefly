@@ -32,7 +32,6 @@ use crate::alt::answers_solver::Cycles;
 use crate::alt::attr::AttrDefinition;
 use crate::alt::attr::AttrInfo;
 use crate::alt::traits::Solve;
-use crate::alt::traits::SolveRecursive;
 use crate::binding::binding::Exported;
 use crate::binding::binding::Key;
 use crate::binding::binding::Keyed;
@@ -62,6 +61,7 @@ use crate::types::equality::TypeEq;
 use crate::types::equality::TypeEqCtx;
 use crate::types::stdlib::Stdlib;
 use crate::types::types::Type;
+use crate::types::types::Var;
 
 /// The index stores all the references where the definition is external to the current module.
 /// This is useful for fast references computation.
@@ -107,8 +107,7 @@ pub struct Answers {
     trace: Option<Mutex<Traces>>,
 }
 
-pub type AnswerEntry<K> =
-    IndexMap<K, Calculation<Arc<<K as Keyed>::Answer>, <K as SolveRecursive>::Recursive>>;
+pub type AnswerEntry<K> = IndexMap<K, Calculation<Arc<<K as Keyed>::Answer>, Var>>;
 
 table!(
     #[derive(Debug, Default)]
@@ -117,7 +116,7 @@ table!(
 
 impl DisplayWith<Bindings> for Answers {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, bindings: &Bindings) -> fmt::Result {
-        fn go<K: SolveRecursive>(
+        fn go<K: Keyed>(
             bindings: &Bindings,
             entry: &AnswerEntry<K>,
             f: &mut fmt::Formatter<'_>,
@@ -342,7 +341,7 @@ impl Answers {
         enable_index: bool,
         enable_trace: bool,
     ) -> Self {
-        fn presize<K: SolveRecursive>(items: &mut AnswerEntry<K>, bindings: &Bindings)
+        fn presize<K: Keyed>(items: &mut AnswerEntry<K>, bindings: &Bindings)
         where
             BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
         {
@@ -517,7 +516,7 @@ impl Answers {
         Arc::new(vv)
     }
 
-    pub fn get_idx<K: SolveRecursive>(&self, k: Idx<K>) -> Option<Arc<K::Answer>>
+    pub fn get_idx<K: Keyed>(&self, k: Idx<K>) -> Option<Arc<K::Answer>>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
     {
@@ -574,10 +573,7 @@ impl Answers {
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    pub fn get_calculation<K: Solve<Ans>>(
-        &self,
-        idx: Idx<K>,
-    ) -> &Calculation<Arc<K::Answer>, K::Recursive>
+    pub fn get_calculation<K: Solve<Ans>>(&self, idx: Idx<K>) -> &Calculation<Arc<K::Answer>, Var>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
